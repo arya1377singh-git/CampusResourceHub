@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
-import { ArrowRight, ArrowUpRight, Bell, Building2, Camera, Check, CircuitBoard, Clock3, Cpu, FlaskConical, Info, LayoutDashboard, ListOrdered, MapPin, MoreHorizontal, Plus, Projector, Search, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, ArrowUpRight, Bell, Building2, Camera, Check, CircuitBoard, Clock3, Cpu, FlaskConical, Info, LayoutDashboard, ListOrdered, LogOut, MapPin, MoreHorizontal, Plus, Projector, Search, X } from "lucide-react";
+import { LandingPage, LoginPage } from "./AuthPages.jsx";
+import { DEMO_ACCOUNTS } from "./demo-accounts.js";
 import "./App.css";
 
 const glyphs = {
@@ -65,6 +67,10 @@ const roleDetails = {
   Admin: { name: "Alex Morgan", initials: "AM", department: "Campus operations", subtitle: "Administrator workspace" },
 };
 
+const roleRoutes = { Admin: "admin", HOD: "hod", Student: "student" };
+
+const roleFromPath = (path) => Object.entries(roleRoutes).find(([, slug]) => path === `/dashboard/${slug}`)?.[0] ?? null;
+
 const navByRole = {
   Student: [
     { id: "overview", label: "Overview", icon: "▦" },
@@ -98,7 +104,9 @@ const statusClass = (status) => {
 };
 
 function App() {
-  const [role, setRole] = useState("Admin");
+  const [route, setRoute] = useState(() => window.location.pathname);
+  const [authenticatedRole, setAuthenticatedRole] = useState(null);
+  const [loginError, setLoginError] = useState("");
   const [activePage, setActivePage] = useState("overview");
   const [resources] = useState(initialResources);
   const [requests, setRequests] = useState(initialRequests);
@@ -110,6 +118,20 @@ function App() {
   const [notice, setNotice] = useState("");
   const [inspectedRequest, setInspectedRequest] = useState(null);
 
+  useEffect(() => {
+    const syncRoute = () => setRoute(window.location.pathname);
+    window.addEventListener("popstate", syncRoute);
+    return () => window.removeEventListener("popstate", syncRoute);
+  }, []);
+
+  useEffect(() => {
+    const requestedRole = roleFromPath(route);
+    if (requestedRole && authenticatedRole !== requestedRole) {
+      window.history.replaceState({}, "", "/login");
+    }
+  }, [route, authenticatedRole]);
+
+  const role = roleFromPath(route) ?? authenticatedRole ?? "Admin";
   const user = roleDetails[role];
   const pendingHod = requests.filter((item) => item.status === "Awaiting HOD").length;
   const pendingAdmin = requests.filter((item) => item.status === "Awaiting admin").length;
@@ -126,15 +148,34 @@ function App() {
     return true;
   }), [requests, role, user.department]);
 
+  const navigate = (path) => {
+    window.history.pushState({}, "", path);
+    setRoute(path);
+  };
+
+  const handleLogin = (email, password) => {
+    const account = DEMO_ACCOUNTS.find((demoAccount) => demoAccount.email === email && demoAccount.password === password);
+    if (!account) {
+      setLoginError("Those demo credentials don’t match. Choose an account below or try again.");
+      return;
+    }
+    setAuthenticatedRole(account.role);
+    setLoginError("");
+    setActivePage("overview");
+    setNotice("");
+    navigate(`/dashboard/${roleRoutes[account.role]}`);
+  };
+
   const openPage = (page) => {
     setActivePage(page);
     setNotice("");
   };
 
-  const changeRole = (nextRole) => {
-    setRole(nextRole);
+  const signOut = () => {
+    setAuthenticatedRole(null);
     setActivePage("overview");
     setNotice("");
+    navigate("/");
   };
 
   const decideRequest = (id, nextStatus) => {
@@ -192,10 +233,14 @@ function App() {
   const currentNav = navByRole[role];
   const pageHeading = currentNav.find((item) => item.id === activePage)?.label ?? "Overview";
 
+  if (route === "/" || route === "/index.html") return <LandingPage onLogin={() => navigate("/login")} />;
+  const routeRole = roleFromPath(route);
+  if (!routeRole || authenticatedRole !== routeRole) return <LoginPage onLogin={handleLogin} onHome={() => navigate("/")} error={loginError} />;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <a className="brand" href="#overview" onClick={() => openPage("overview")} aria-label="Campus Resources home">
+        <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate("/"); }} aria-label="Campus Resources home">
           <span className="brand-mark">CR</span>
           <span className="brand-copy"><strong>Campus Resources</strong><small>RESOURCE HUB</small></span>
         </a>
@@ -219,7 +264,8 @@ function App() {
         <header className="topbar">
           <div className="breadcrumb"><span>Campus</span><span className="breadcrumb-separator">/</span><strong>{pageHeading}</strong></div>
           <div className="topbar-actions">
-            <label className="role-picker"><span>Preview as</span><select aria-label="Choose a prototype role" value={role} onChange={(event) => changeRole(event.target.value)}><option>Admin</option><option>HOD</option><option>Student</option></select></label>
+            <span className="role-context">{role} portal</span>
+            <button className="logout-button" onClick={signOut}><LogOut size={14} aria-hidden="true" /> Sign out</button>
             <button className="icon-button notification-button" aria-label="Notifications"><Glyph symbol="♧" />{pendingHod + pendingAdmin > 0 && <i />}</button>
             <span className="avatar avatar-top">{user.initials}</span>
           </div>
