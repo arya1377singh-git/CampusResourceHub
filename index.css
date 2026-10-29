@@ -2,8 +2,9 @@
 
 :root {
   font-family: "DM Sans", sans-serif;
-  color: #202c27;
-  background: #f7f8f6;
+  color: #dce6de;
+  background: #0e1511;
+  color-scheme: dark;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -12,5 +13,5 @@
 
 * { box-sizing: border-box; }
 html { min-width: 320px; min-height: 100%; }
-body { min-width: 320px; min-height: 100vh; margin: 0; }
+body { min-width: 320px; min-height: 100vh; margin: 0; background: #0e1511; color: #dce6de; }
 button, input, select, textarea { font: inherit; }
